@@ -1,0 +1,35 @@
+---
+source: tests/snapshot_tests.rs
+expression: tree.unwrap()
+---
+directory: snapshots/init
+
+directory: snapshots/init/.minit
+
+file: snapshots/init/.minit/config
+>>>>>
+[core]
+bare: false
+filemode: false
+repositoryformatversion: 0
+<<<<<
+
+directory: snapshots/init/.minit/objects
+
+file: snapshots/init/.minit/HEAD
+>>>>>
+ref: refs/heads/master
+<<<<<
+
+file: snapshots/init/.minit/description
+>>>>>
+Unnamed repository; edit this file 'description' to name the repository.
+<<<<<
+
+directory: snapshots/init/.minit/refs
+
+directory: snapshots/init/.minit/refs/heads
+
+directory: snapshots/init/.minit/refs/tags
+
+directory: snapshots/init/.minit/branches

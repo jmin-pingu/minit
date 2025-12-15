@@ -1,0 +1,13 @@
+[package]
+name = "minit"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.53", features = ["derive"] }
+configparser = "3.1.0"
+flate2 = "1.1.5"
+sha2 = "0.10.9"
+
+[dev-dependencies]
+insta = { version = "1.44.3", features = ["yaml"] }
