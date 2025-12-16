@@ -19,11 +19,13 @@ directory: snapshots/init/.minit/objects
 file: snapshots/init/.minit/HEAD
 >>>>>
 ref: refs/heads/master
+
 <<<<<
 
 file: snapshots/init/.minit/description
 >>>>>
 Unnamed repository; edit this file 'description' to name the repository.
+
 <<<<<
 
 directory: snapshots/init/.minit/refs

@@ -56,7 +56,7 @@ impl Object {
     }
 
     pub fn write(&self) -> Result<(String, String)> {
-        let data = str::from_utf8(self.serialize().unwrap())?;
+        let data = str::from_utf8(&self.serialize().unwrap()[..])?;
         let size = format!("{}", data.len());
         let result = self.format.to_string() + " " + &size + "\x00" + data;
         let sha = Sha256::digest(&result);

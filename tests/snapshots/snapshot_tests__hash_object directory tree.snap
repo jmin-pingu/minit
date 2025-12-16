@@ -1,0 +1,61 @@
+---
+source: tests/snapshot_tests.rs
+expression: tree.unwrap()
+---
+directory: snapshots/working_dir
+
+file: snapshots/working_dir/helloworld.txt
+>>>>>
+helloworld
+<<<<<
+
+directory: snapshots/working_dir/.minit
+
+file: snapshots/working_dir/.minit/config
+>>>>>
+[core]
+bare: false
+filemode: false
+repositoryformatversion: 0
+<<<<<
+
+directory: snapshots/working_dir/.minit/objects
+
+directory: snapshots/working_dir/.minit/objects/0d
+
+file: snapshots/working_dir/.minit/objects/0d/e8a387362327d616c7db64c04f46d956317c1ba2e91237c904c3322b7a381a
+>>>>>
+"blob 10\0helloworld"
+<<<<<
+
+directory: snapshots/working_dir/.minit/objects/d6
+
+file: snapshots/working_dir/.minit/objects/d6/d3e24a3403099049d7ac701834ac8d14ffcdec02114e30d3f7ead31ed5f249
+>>>>>
+"blob 6\0foobar"
+<<<<<
+
+file: snapshots/working_dir/.minit/HEAD
+>>>>>
+ref: refs/heads/master
+
+<<<<<
+
+file: snapshots/working_dir/.minit/description
+>>>>>
+Unnamed repository; edit this file 'description' to name the repository.
+
+<<<<<
+
+directory: snapshots/working_dir/.minit/refs
+
+directory: snapshots/working_dir/.minit/refs/heads
+
+directory: snapshots/working_dir/.minit/refs/tags
+
+directory: snapshots/working_dir/.minit/branches
+
+file: snapshots/working_dir/foobar.txt
+>>>>>
+foobar
+<<<<<

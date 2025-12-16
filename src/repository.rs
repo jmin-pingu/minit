@@ -36,26 +36,26 @@ impl Repository {
             fs::create_dir_all(&repo.worktree)?;
         }
 
-        repo.repo_dir(vec!["branches"], true).unwrap();
-        repo.repo_dir(vec!["objects"], true).unwrap();
-        repo.repo_dir(vec!["refs", "tags"], true).unwrap();
-        repo.repo_dir(vec!["refs", "heads"], true).unwrap();
+        repo.repo_dir(vec!["branches"], true)?;
+        repo.repo_dir(vec!["objects"], true)?;
+        repo.repo_dir(vec!["refs", "tags"], true)?;
+        repo.repo_dir(vec!["refs", "heads"], true)?;
         
-        let mut file_path = repo.repo_file(vec!["description"], false).unwrap();
+        let mut file_path = repo.repo_file(vec!["description"], false)?.unwrap();
         OpenOptions::new()
             .write(true)
             .create(true)
             .open(&file_path)?
             .write("Unnamed repository; edit this file 'description' to name the repository.\n".as_bytes())?;
 
-        file_path = repo.repo_file(vec!["HEAD"], false).unwrap();
+        file_path = repo.repo_file(vec!["HEAD"], false)?.unwrap();
         OpenOptions::new()
             .write(true)
             .create(true)
             .open(&file_path)?
             .write("ref: refs/heads/master\n".as_bytes())?;
 
-        file_path = repo.repo_file(vec!["config"], false).unwrap();
+        file_path = repo.repo_file(vec!["config"], false)?.unwrap();
         repo.init_config(&file_path)?;
 
         Ok(repo)
@@ -79,7 +79,7 @@ impl Repository {
         let mut repo = Repository {
             worktree, minit_dir, conf: Ini::new()
         };
-        let config_path = repo.repo_file(vec!["config"], false)?;
+        let config_path = repo.repo_file(vec!["config"], false)?.unwrap();
         if config_path.exists() {
             repo.conf.load(&config_path).unwrap();
         } else {
@@ -110,13 +110,13 @@ impl Repository {
     }
 
     /// ONLY CREATES THE DIRECTORIES
-    pub fn repo_dir(&self, paths: Vec<&str>, mkdir: bool) -> Result<PathBuf> {
+    pub fn repo_dir(&self, paths: Vec<&str>, mkdir: bool) -> Result<Option<PathBuf>> {
         assert!(paths.len() > 0);
         let path = self.repo_path(paths);
         // NOTE: is there a way to tidy this up?
         if path.exists() {
             if path.is_dir() {
-                return Ok(path);
+                return Ok(Some(path));
             } else {
                 return Err(Error::InvalidFilePath(path));
             }
@@ -124,20 +124,21 @@ impl Repository {
 
         if mkdir {
             fs::create_dir_all(&path)?;
-            Ok(path)
+            Ok(Some(path))
         } else {
-            Err(Error::InvalidFilePath(path))
+            Ok(None)
         }
     }
 
     ///
-    pub fn repo_file(&self, paths: Vec<&str>, mkdir: bool) -> Result<PathBuf> {
+    pub fn repo_file(&self, paths: Vec<&str>, mkdir: bool) -> Result<Option<PathBuf>> {
         assert!(paths.len() > 0);
         if paths.len() == 1 {
-            return Ok(self.minit_dir.join(paths[0]));
+            return Ok(Some(self.minit_dir.join(paths[0])));
         }
         
         self.repo_dir(paths[0..paths.len()-1].to_vec(), mkdir)
+            .map(|op| op.map(|_| self.repo_path(paths)))
     }
 
     pub fn find(path: &Path, required: bool) -> Result<Option<Repository>> {
@@ -162,7 +163,9 @@ impl Repository {
     }
 
     pub fn read_object(&self, sha: String) -> Result<Object> {
-        let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], false)?;
+        let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], false)?
+            .ok_or(Error::ObjectNotDefined(sha.clone()))?;
+
         if !path.is_file() {
             return Err(Error::ObjectNotDefined(sha));
         }
@@ -194,10 +197,11 @@ impl Repository {
     /// Return the hash
     pub fn write_object(&self, obj: Object) -> Result<String>{
         let (sha, result) = obj.write()?;
-        let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], true)?;
-        if path.exists() {
-            let mut file = OpenOptions::new().write(true).open(&path)?;
+        let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], true)?.unwrap();
+        if !path.exists() {
+            let mut file = OpenOptions::new().create(true).write(true).open(&path)?;
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+
             encoder.write_all(result.as_bytes())?;
             let compressed = encoder.finish()?; 
             file.write_all(&compressed[..])?;
