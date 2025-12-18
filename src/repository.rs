@@ -180,7 +180,7 @@ impl Repository {
 
         let mut it = data.iter();
         let obj_idx = it.position(|&b| b == b' ').unwrap();
-        let size_idx = it.position(|&b| b == b'\x00').unwrap();
+        let size_idx = obj_idx + 1 + it.position(|&b| b == b'\x00').unwrap();
         let fmt = String::from_utf8(data[0..obj_idx].to_vec())?;
         let size = String::from_utf8(data[obj_idx+1..size_idx].to_vec())?.parse::<usize>()?;
         if size != data.len() - size_idx - 1 {

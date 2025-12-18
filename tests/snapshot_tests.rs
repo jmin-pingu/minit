@@ -1,6 +1,9 @@
 use minit::repository::Repository;
 use minit::error::Result;
-use minit::object::Format;
+use minit::object::{
+    Format,
+    Object
+};
 use minit::cli;
 use flate2::read::ZlibDecoder;
 use std::{
@@ -38,7 +41,7 @@ fn test_full_functionality() {
     if path.exists() && path.is_dir() {
         _ = fs::remove_dir_all(path);
     }
-    _ = Repository::create(path).unwrap();
+    let mut repo = Repository::create(path).unwrap();
     let mut builder = String::from("");
     let p1 = "snapshots/working_dir/helloworld.txt";
     let mut f1 = OpenOptions::new().create(true).write(true).open(p1).unwrap();
@@ -53,6 +56,24 @@ fn test_full_functionality() {
 
     let tree = ls_tree(path, &mut builder);
     insta::assert_snapshot!("hash_object directory tree", tree.unwrap());
+    
+    let mut objects: Vec<String> = Vec::new();
+    fs::read_dir(Path::new("snapshots/working_dir/.minit/objects"))
+        .unwrap()
+        .for_each(|elem| {
+            let hash_prefix = elem.as_ref().unwrap().file_name();
+            elem.unwrap().path().read_dir().unwrap().for_each(|file|
+                objects.push(hash_prefix.clone().into_string().unwrap() + file.unwrap().file_name().to_str().unwrap())
+        )
+    });
+    let outputs = objects.iter()
+        .map(|f| {
+            let object = repo.read_object(repo.find_object(f.clone(), Format::Blob, true).unwrap()).unwrap();
+            String::from_utf8(object.serialize().unwrap().clone()).unwrap()
+        })
+        .collect::<Vec<String>>();
+
+    insta::assert_yaml_snapshot!("cat_file (object_read) unhashed objects", outputs);
 }
 
 #[test]
@@ -80,7 +101,6 @@ fn standardize_config(path: &Path) -> String {
 #[cfg(test)]
 fn ls_tree<'a>(path: &Path, builder: &'a mut String) -> Result<&'a mut String> {
     if path.is_dir() {
-        println!("{:#?}", path);
         *builder = builder.clone() + "directory: " + path.to_str().unwrap() + "\n\n";
         for path in path.read_dir()? {
             let new_path = path?.path();
@@ -89,7 +109,6 @@ fn ls_tree<'a>(path: &Path, builder: &'a mut String) -> Result<&'a mut String> {
         return Ok(builder);
     }
     if path.is_file() {
-        println!("{:#?}", path);
         if path.file_name().unwrap() == "config" {
             let content = standardize_config(path);
             *builder = builder.clone() + "file: " +

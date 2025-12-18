@@ -66,17 +66,18 @@ pub fn init(path: &Path) {
     }
 }
 
-pub fn cat_file(fmt: Format, object: String) {
+pub fn cat_file(fmt: Format, object: String) -> String {
     let repo = match Repository::find(&Path::new("."), true) {
         Err(err) => panic!("{:#?}", err),
         Ok(Some(repo)) => repo,
         Ok(None) => unreachable!(),
     };
+    // TODO: refactor below two errors
     let object = repo.read_object(repo.find_object(object, fmt, true).unwrap()).unwrap();
-    println!("{:#?}", object.serialize());
+    String::from_utf8(object.serialize().unwrap().clone()).unwrap()
 }
 
-pub fn hash_object(fmt: Format, write: bool, path: String) {
+pub fn hash_object(fmt: Format, write: bool, path: String) -> String {
     let path = Path::new(&path);
     let mut file = OpenOptions::new().read(true).open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -88,9 +89,9 @@ pub fn hash_object(fmt: Format, write: bool, path: String) {
     if write {
         let repo = Repository::find(path, true).unwrap().unwrap();
         let sha = repo.write_object(object).unwrap();
-        println!("{}", sha);
+        sha
     } else {
         let (sha, _) = object.write().unwrap();
-        println!("{}", sha);
+        sha
     }
 }
