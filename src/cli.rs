@@ -4,7 +4,7 @@ use std::{
 };
 use crate::{
     repository::Repository,
-    object::{Object, ObjectType}
+    object::Object
 };
 
 /// Minit. A bare bones version control system
@@ -107,7 +107,7 @@ pub fn hash_object(fmt: Format, write: bool, path: String) -> String {
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf).unwrap();
     let object = match fmt {
-        Format::Blob => ObjectType::new(Format::Blob, buf),
+        Format::Blob => Object::new(Format::Blob, buf),
         Format::Tag | Format::Tree | Format::Commit => unimplemented!(),
     };
     if write {

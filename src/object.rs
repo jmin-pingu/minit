@@ -4,47 +4,49 @@ use crate::cli::Format;
 use indexmap::IndexMap;
 use itertools::Itertools;
 
-pub enum ObjectType {
+pub enum Object {
     Blob(Vec<u8>),
     Commit(IndexMap<String, Vec<String>>),
 }
 
-impl ObjectType {
+impl Object {
     pub fn new(format: Format, data: Vec<u8>) -> Self{
         match format {
-            Format::Blob => ObjectType::Blob(data),
-            Format::Commit => ObjectType::Commit(key_value_parse(str::from_utf8(&data).unwrap())),
+            Format::Blob => Object::Blob(data),
+            Format::Commit => Object::Commit(key_value_parse(str::from_utf8(&data).unwrap())),
             _ => unimplemented!()
         } 
     }
-}
 
-impl Object for ObjectType {
-    fn serialize(&self) -> Option<Vec<u8>> {
-        return match self {
-            ObjectType::Blob(data) => Some(data.clone()),
-            ObjectType::Commit(map) => Some(key_value_serialize(map)) ,
+    pub fn serialize(&self) -> Option<Vec<u8>> {
+        match self {
+            Object::Blob(data) => Some(data.clone()),
+            Object::Commit(map) => Some(key_value_serialize(map)) ,
             _ => unimplemented!()
         }
     }
     
-    fn deserialize(&mut self, data: Vec<u8>) {
-        unimplemented!()
+    pub fn deserialize(&mut self, data: Vec<u8>) {
+        match self {
+            Object::Blob(curr_data) => {
+                *curr_data = data;            
+            },
+            Object::Commit(map) => {
+                *map = key_value_parse(str::from_utf8(&data[..]).unwrap());
+            },
+            _ => unimplemented!()
+        }
     }
 
-    fn format(&self) -> Format {
-        unimplemented!()
+    pub fn format(&self) -> Format {
+        match self {
+            Object::Blob(_) => Format::Blob,
+            Object::Commit(_) => Format::Commit,
+            _ => unimplemented!()
+        }
     }
-}
 
-pub trait Object {
-    fn serialize(&self) -> Option<Vec<u8>>;
-    
-    fn deserialize(&mut self, data: Vec<u8>);
-
-    fn format(&self) -> Format;
-
-    fn write(&self) -> Result<(String, String)> {
+    pub fn write(&self) -> Result<(String, String)> {
         let raw = self.serialize().unwrap();
         let data = str::from_utf8(&raw[..])?;
         let size = format!("{}", data.len());

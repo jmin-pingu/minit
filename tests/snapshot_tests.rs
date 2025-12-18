@@ -1,10 +1,10 @@
 use minit::repository::Repository;
 use minit::error::Result;
 use minit::object::{
-    Format,
     Object
 };
 use minit::cli;
+use minit::cli::Format;
 use flate2::read::ZlibDecoder;
 use std::{
     io::{Write, Read},
