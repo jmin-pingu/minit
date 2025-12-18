@@ -11,7 +11,7 @@ use flate2::{
     read::ZlibDecoder,
     Compression
 };
-use crate::object::{Object, Format};
+use crate::object::{Object, Format, Blob};
 use configparser::ini::Ini;
 
 #[derive(Debug)]
@@ -162,7 +162,7 @@ impl Repository {
         }
     }
 
-    pub fn read_object(&self, sha: String) -> Result<Object> {
+    pub fn read_object(&self, sha: String) -> Result<impl Object> {
         let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], false)?
             .ok_or(Error::ObjectNotDefined(sha.clone()))?;
 
@@ -188,14 +188,14 @@ impl Repository {
         }
 
         return match fmt.as_str() {
-            "blob" => Ok(Object::new(Format::Blob, Some(data[size_idx+1..].to_vec()))),
+            "blob" => Ok(Blob::new(data[size_idx+1..].to_vec())),
             "commit" | "tag" | "tree" => unimplemented!(),
             _ => panic!("Unknown object type {} for object {}", fmt, sha),
         }
     }
 
     /// Return the hash
-    pub fn write_object(&self, obj: Object) -> Result<String>{
+    pub fn write_object<T: Object>(&self, obj: T) -> Result<String>{
         let (sha, result) = obj.write()?;
         let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], true)?.unwrap();
         if !path.exists() {

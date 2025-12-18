@@ -24,97 +24,112 @@ impl fmt::Display for Format {
     }
 }
 
-pub struct Object {
-    format: Format,
-    data: Option<Vec<u8>>,
-    map: Option<IndexMap<String, Vec<String>>>,
-}
 
-impl Object {
-    pub fn serialize(&self) -> Option<Vec<u8>> {
-        match self.format {
-            Format::Blob => self.data.clone(),
-            Format::Tree => unimplemented!(),
-            Format::Tag => unimplemented!(),
-            Format::Commit => Some(
-                Object::key_value_serialize(
-                    self.map.as_ref().unwrap()
-                ).as_str().as_bytes().to_vec()
-                ),
-        }
-    }
+pub trait Object {
+    fn serialize(&self) -> Option<Vec<u8>>;
     
-    pub fn deserialize(&mut self, data: Option<Vec<u8>>) {
-        match self.format {
-            Format::Blob => self.data = data,
-            Format::Tree => unimplemented!(),
-            Format::Tag => unimplemented!(),
-            Format::Commit => self.map = Some(Object::key_value_parse(str::from_utf8(self.data.as_ref().unwrap()).unwrap())),
-        }
-    }
+    fn deserialize(&mut self, data: Vec<u8>);
 
-    pub fn new(format: Format, data: Option<Vec<u8>>) -> Self {
-        match format {
-            Format::Blob => Object{ format, data, map: None } ,
-            Format::Tree => unimplemented!(),
-            Format::Tag => unimplemented!(),
-            Format::Commit => Object { format, data, map: None},
-        }
-    }
+    fn format(&self) -> Format;
 
-    pub fn write(&self) -> Result<(String, String)> {
+    fn write(&self) -> Result<(String, String)> {
         let raw = self.serialize().unwrap();
         let data = str::from_utf8(&raw[..])?;
         let size = format!("{}", data.len());
-        let result = self.format.to_string() + " " + &size + "\x00" + data;
+        let result = format!("{}", self.format()) + " " + &size + "\x00" + data;
         let sha = Sha256::digest(&result);
         Ok((format!("{:x}", &sha), result))
     }
+}
 
-    pub fn key_value_serialize(map: &IndexMap<String, Vec<String>>) -> String {
-        map.iter().map(|(k, v)| {
-            if k == "message" {
-                return String::from("\n") + &v.join("");
-            } 
-            v.iter()
-                .map(|v| k.clone() + " " + v)
-                .collect::<Vec<String>>()
-                .join("\n")
-        }).join("\n")
+pub struct Blob {
+    data: Vec<u8>,
+}
+
+impl Blob {
+    pub fn new(data: Vec<u8>) -> Self {
+        Blob { data } 
+    }
+}
+
+impl Object for Blob {
+    fn serialize(&self) -> Option<Vec<u8>> {
+        Some(self.data.clone())
+    }
+    
+    fn deserialize(&mut self, data: Vec<u8>) {
+        self.data = data;
     }
 
-    pub fn key_value_parse(raw: &str) -> IndexMap<String, Vec<String>> {
-        let mut map: IndexMap<String, Vec<String>> = IndexMap::new();
-        raw.split("\n").into_iter()
-            .map(|x| x.to_string())
-            .coalesce(|x, y| {
-                if let Some(ch) = y.get(..1) {
-                    if ch == " " {
-                        Ok(x + "\n" + &y[1..])
-                    } else {
-                        Err((x, y))
-                    }
+    fn format(&self) -> Format {
+        Format::Blob
+    }
+}
+
+pub struct Commit {
+    map: IndexMap<String, Vec<String>>,
+}
+
+impl Object for Commit {
+    fn serialize(&self) -> Option<Vec<u8>> {
+        Some(key_value_serialize(&self.map).as_str().as_bytes().to_vec())
+    }
+    
+    fn deserialize(&mut self, data: Vec<u8>) {
+        self.map = key_value_parse(str::from_utf8(&data).unwrap());
+    }
+
+    fn format(&self) -> Format {
+        Format::Commit
+    }
+}
+
+/// TODO:
+fn key_value_serialize(map: &IndexMap<String, Vec<String>>) -> String {
+    map.iter().map(|(k, v)| {
+        if k == "message" {
+            return String::from("\n") + &v.join("");
+        } 
+        v.iter()
+            .map(|v| k.clone() + " " + v)
+            .collect::<Vec<String>>()
+            .join("\n")
+    }).join("\n")
+}
+
+/// TODO:
+fn key_value_parse(raw: &str) -> IndexMap<String, Vec<String>> {
+    let mut map: IndexMap<String, Vec<String>> = IndexMap::new();
+    raw.split("\n").into_iter()
+        .map(|x| x.to_string())
+        .coalesce(|x, y| {
+            if let Some(ch) = y.get(..1) {
+                if ch == " " {
+                    Ok(x + "\n" + &y[1..])
                 } else {
                     Err((x, y))
                 }
-            })
-        .coalesce(|x, y| {
-            if x == "" {
-                Ok(String::from("message ") + &y)
             } else {
                 Err((x, y))
             }
         })
-        .for_each(|line| {
-            let space_idx = line.find(" ").expect("Tag or commit is incorrectly formatted");
-            let key = String::from(&line[..space_idx]);
-            let value = String::from(&line[space_idx+1..]);
-            if let Some(val) = map.get_mut(&key) {
-                val.push(value);
-            } else {
-                map.insert(key, vec![value]);
-            }
-        });
-        map
-    }
+    .coalesce(|x, y| {
+        if x == "" {
+            Ok(String::from("message ") + &y)
+        } else {
+            Err((x, y))
+        }
+    })
+    .for_each(|line| {
+        let space_idx = line.find(" ").expect("Tag or commit is incorrectly formatted");
+        let key = String::from(&line[..space_idx]);
+        let value = String::from(&line[space_idx+1..]);
+        if let Some(val) = map.get_mut(&key) {
+            val.push(value);
+        } else {
+            map.insert(key, vec![value]);
+        }
+    });
+    map
 }
+
