@@ -1,29 +1,41 @@
-use std::fmt;
 use sha2::{Sha256, Digest};
-use clap::ValueEnum;
 use crate::error::Result;
+use crate::cli::Format;
 use indexmap::IndexMap;
 use itertools::Itertools;
 
-#[derive(Debug, Clone, ValueEnum)]
-pub enum Format {
-    Blob,
-    Tree,
-    Tag,
-    Commit
+pub enum ObjectType {
+    Blob(Vec<u8>),
+    Commit(IndexMap<String, Vec<String>>),
 }
 
-impl fmt::Display for Format {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            Format::Blob => write!(f, "blob"),
-            Format::Tree => write!(f, "tree"),
-            Format::Tag => write!(f, "tag"),
-            Format::Commit => write!(f, "commit"),
-        }
+impl ObjectType {
+    pub fn new(format: Format, data: Vec<u8>) -> Self{
+        match format {
+            Format::Blob => ObjectType::Blob(data),
+            Format::Commit => ObjectType::Commit(key_value_parse(str::from_utf8(&data).unwrap())),
+            _ => unimplemented!()
+        } 
     }
 }
 
+impl Object for ObjectType {
+    fn serialize(&self) -> Option<Vec<u8>> {
+        return match self {
+            ObjectType::Blob(data) => Some(data.clone()),
+            ObjectType::Commit(map) => Some(key_value_serialize(map)) ,
+            _ => unimplemented!()
+        }
+    }
+    
+    fn deserialize(&mut self, data: Vec<u8>) {
+        unimplemented!()
+    }
+
+    fn format(&self) -> Format {
+        unimplemented!()
+    }
+}
 
 pub trait Object {
     fn serialize(&self) -> Option<Vec<u8>>;
@@ -42,50 +54,8 @@ pub trait Object {
     }
 }
 
-pub struct Blob {
-    data: Vec<u8>,
-}
-
-impl Blob {
-    pub fn new(data: Vec<u8>) -> Self {
-        Blob { data } 
-    }
-}
-
-impl Object for Blob {
-    fn serialize(&self) -> Option<Vec<u8>> {
-        Some(self.data.clone())
-    }
-    
-    fn deserialize(&mut self, data: Vec<u8>) {
-        self.data = data;
-    }
-
-    fn format(&self) -> Format {
-        Format::Blob
-    }
-}
-
-pub struct Commit {
-    map: IndexMap<String, Vec<String>>,
-}
-
-impl Object for Commit {
-    fn serialize(&self) -> Option<Vec<u8>> {
-        Some(key_value_serialize(&self.map).as_str().as_bytes().to_vec())
-    }
-    
-    fn deserialize(&mut self, data: Vec<u8>) {
-        self.map = key_value_parse(str::from_utf8(&data).unwrap());
-    }
-
-    fn format(&self) -> Format {
-        Format::Commit
-    }
-}
-
 /// TODO:
-fn key_value_serialize(map: &IndexMap<String, Vec<String>>) -> String {
+fn key_value_serialize(map: &IndexMap<String, Vec<String>>) -> Vec<u8> {
     map.iter().map(|(k, v)| {
         if k == "message" {
             return String::from("\n") + &v.join("");
@@ -94,7 +64,7 @@ fn key_value_serialize(map: &IndexMap<String, Vec<String>>) -> String {
             .map(|v| k.clone() + " " + v)
             .collect::<Vec<String>>()
             .join("\n")
-    }).join("\n")
+    }).join("\n").as_bytes().to_vec()
 }
 
 /// TODO:

@@ -11,7 +11,8 @@ use flate2::{
     read::ZlibDecoder,
     Compression
 };
-use crate::object::{Object, Format, Blob};
+use crate::object::{Object, ObjectType};
+use crate::cli::Format;
 use configparser::ini::Ini;
 
 #[derive(Debug)]
@@ -162,7 +163,7 @@ impl Repository {
         }
     }
 
-    pub fn read_object(&self, sha: String) -> Result<impl Object> {
+    pub fn read_object(&self, sha: String) -> Result<ObjectType> {
         let path = self.repo_file(vec!["objects", &sha[0..2], &sha[2..]], false)?
             .ok_or(Error::ObjectNotDefined(sha.clone()))?;
 
@@ -187,9 +188,11 @@ impl Repository {
             panic!("Malformed object {}: bad length", sha);
         }
 
+        let data = data[size_idx+1..].to_vec();
         return match fmt.as_str() {
-            "blob" => Ok(Blob::new(data[size_idx+1..].to_vec())),
-            "commit" | "tag" | "tree" => unimplemented!(),
+            "commit" => Ok(ObjectType::new(Format::Commit, data)),
+            "blob" => Ok(ObjectType::new(Format::Blob, data)),
+            "tag" | "tree" => unimplemented!(),
             _ => panic!("Unknown object type {} for object {}", fmt, sha),
         }
     }

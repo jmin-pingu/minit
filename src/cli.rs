@@ -1,11 +1,10 @@
-use clap::{Parser, Subcommand};
-use crate::object::Format;
+use clap::{Parser, Subcommand, ValueEnum};
 use std::{
-    fs::OpenOptions, io::Read, path::Path
+    fs::OpenOptions, io::Read, path::Path, fmt
 };
 use crate::{
     repository::Repository,
-    object::{Blob,Commit,Object}
+    object::{Object, ObjectType}
 };
 
 /// Minit. A bare bones version control system
@@ -49,7 +48,12 @@ pub enum Commands {
         #[arg(default_value_t=String::from("."))]
         path: String
     },
-    Log {},
+    /// Commit history 
+    Log {
+        /// The commit to start at.
+        #[arg(default_value_t=String::from("HEAD"))]
+        commit: String
+    },
     LsFile {},
     LsTree {},
     RevParse {},
@@ -58,6 +62,26 @@ pub enum Commands {
     Status {},
     Tag {},
 }
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Format {
+    Blob,
+    Tree,
+    Tag,
+    Commit
+}
+
+impl fmt::Display for Format {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Format::Blob => write!(f, "blob"),
+            Format::Tree => write!(f, "tree"),
+            Format::Tag => write!(f, "tag"),
+            Format::Commit => write!(f, "commit"),
+        }
+    }
+}
+
 
 pub fn init(path: &Path) {
     match Repository::create(path) {
@@ -83,10 +107,11 @@ pub fn hash_object(fmt: Format, write: bool, path: String) -> String {
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf).unwrap();
     let object = match fmt {
-        Format::Blob => Blob::new(buf),
+        Format::Blob => ObjectType::new(Format::Blob, buf),
         Format::Tag | Format::Tree | Format::Commit => unimplemented!(),
     };
     if write {
+        // TODO: handle unwraps
         let repo = Repository::find(path, true).unwrap().unwrap();
         let sha = repo.write_object(object).unwrap();
         sha
@@ -94,4 +119,16 @@ pub fn hash_object(fmt: Format, write: bool, path: String) -> String {
         let (sha, _) = object.write().unwrap();
         sha
     }
+}
+
+pub fn log(commit: String) -> String {
+    let repo = match Repository::find(&Path::new("."), true) {
+        Err(err) => panic!("{:#?}", err),
+        Ok(Some(repo)) => repo,
+        Ok(None) => unreachable!(),
+    };
+    // TODO: refactor below two errors
+    let object = repo.read_object(repo.find_object(commit, Format::Commit, true).unwrap()).unwrap();
+    // Need to parse object to kvlm; if there is no parent stop appending to String
+    String::from_utf8(object.serialize().unwrap().clone()).unwrap()
 }
