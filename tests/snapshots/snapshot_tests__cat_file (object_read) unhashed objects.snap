@@ -1,6 +1,6 @@
 ---
 source: tests/snapshot_tests.rs
-expression: outputs
+expression: format_index_map(map)
 ---
-- helloworld
-- foobar
+0de8a387362327d616c7db64c04f46d956317c1ba2e91237c904c3322b7a381a: helloworld
+d6d3e24a3403099049d7ac701834ac8d14ffcdec02114e30d3f7ead31ed5f249: foobar

@@ -16,6 +16,10 @@ pub enum Error {
     ObjectNotDefined(String),
     FromUtf8Error(FromUtf8Error),
     Utf8Error(Utf8Error),
+    StringNotFound(String, String),
+    NameNotDefined,
+    AmbiguousReference(Vec<String>),
+    ObjectNotFound,
 }
 
 impl std::error::Error for Error {
@@ -38,6 +42,10 @@ impl fmt::Display for Error {
             Error::ObjectNotDefined(obj) => write!(f, "ObjectNotDefined: {:#?}", obj),
             Error::FromUtf8Error(err) => write!(f, "FromUtf8Error: {:#?}", err),
             Error::Utf8Error(err) => write!(f, "Utf8Error: {:#?}", err),
+            Error::StringNotFound(source, needle) => write!(f, "StringNotFound: needle: {:#?} haystack: {:#?}", needle, source),
+            Error::NameNotDefined => write!(f, "NameNotDefined"),
+            Error::ObjectNotFound => write!(f, "ObjectNotFound"),
+            Error::AmbiguousReference(v) => write!(f, "AmbiguousReference: {:#?}", v),
         }
     }
 }

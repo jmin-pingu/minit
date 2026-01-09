@@ -13,6 +13,7 @@ use std::{
     path::{Path}
 };
 use configparser::ini::Ini;
+use indexmap::IndexMap;
 
 
 #[test]
@@ -33,47 +34,71 @@ fn test_init() {
 }
 
 #[test]
-pub fn test_cat_file() {}
-
-#[test]
 fn test_full_functionality() {
-    let path = Path::new("snapshots/working_dir");
+    let commit_content = "tree 29ff16c9c14e2652b22f8b78bb08a5a07930c147
+author Jonathan Min <test@gmail.com> 1527025023 +0200
+committer Jonathan Min <test@gmail.com> 1527025044 +0200
+gpgsig -----BEGIN PGP SIGNATURE-----
+ iQIzBAABCAAdFiEExwXquOM8bWb4Q2zVGxM2FxoLkGQFAlsEjZQACgkQGxM2FxoL
+ kGQdcBAAqPP+ln4nGDd2gETXjvOpOxLzIMEw4A9gU6CzWzm+oB8mEIKyaH0UFIPh
+ rNUZ1j7/ZGFNeBDtT55LPdPIQw4KKlcf6kC8MPWP3qSu3xHqx12C5zyai2duFZUU
+ wqOt9iCFCscFQYqKs3xsHI+ncQb+PGjVZA8+jPw7nrPIkeSXQV2aZb1E68wa2YIL
+ 3eYgTUKz34cB6tAq9YwHnZpyPx8UJCZGkshpJmgtZ3mCbtQaO17LoihnqPn4UOMr
+ V75R/7FjSuPLS8NaZF4wfi52btXMSxO/u7GuoJkzJscP3p4qtwe6Rl9dc1XC8P7k
+ NIbGZ5Yg5cEPcfmhgXFOhQZkD0yxcJqBUcoFpnp2vu5XJl2E5I/quIyVxUXi6O6c
+ /obspcvace4wy8uO0bdVhc4nJ+Rla4InVSJaUaBeiHTW8kReSFYyMmDCzLjGIu1q
+ doU61OM3Zv1ptsLu3gUE6GU27iWYj2RWN3e3HE4Sbd89IFwLXNdSuM0ifDLZk7AQ
+ WBhRhipCCgZhkj9g2NEk7jRVslti1NdN5zoQLaJNqSwO1MtxTmJ15Ksk3QP6kfLB
+ Q52UWybBzpaP9HEd4XnR+HuQ4k2K0ns2KgNImsNvIyFwbpMUyUWLMPimaV1DWUXo
+ 5SBjDB/V/W2JBFR+XKHFJeFwYhj7DD/ocsGr4ZMx/lgc8rjIBkI=
+ =lgTX
+ -----END PGP SIGNATURE-----
+
+The first commit ever!";
+
+    let repo_path = "snapshots/working_dir";
+    let path = Path::new(repo_path);
     if path.exists() && path.is_dir() {
         _ = fs::remove_dir_all(path);
     }
-    let mut repo = Repository::create(path).unwrap();
+    _ = Repository::create(path).unwrap();
     let mut builder = String::from("");
-    let p1 = "snapshots/working_dir/helloworld.txt";
-    let mut f1 = OpenOptions::new().create(true).write(true).open(p1).unwrap();
-    f1.write(b"helloworld").unwrap();
+    let helloworld_path = "snapshots/working_dir/helloworld.txt";
+    let mut helloworld_file = OpenOptions::new().create(true).write(true).open(helloworld_path).unwrap();
+    helloworld_file.write(b"helloworld").unwrap();
 
-    let p2 = "snapshots/working_dir/foobar.txt";
-    let mut f2 = OpenOptions::new().create(true).write(true).open(p2).unwrap();
-    f2.write(b"foobar").unwrap();
+    let foobar_path = "snapshots/working_dir/foobar.txt";
+    let mut foobar_file = OpenOptions::new().create(true).write(true).open(foobar_path).unwrap();
+    foobar_file.write(b"foobar").unwrap();
 
-    cli::hash_object(Format::Blob, true, String::from(p1));
-    cli::hash_object(Format::Blob, true, String::from(p2));
+    let helloworld_path = "snapshots/working_dir/helloworld.txt";
+    let mut helloworld_file = OpenOptions::new().create(true).write(true).open(helloworld_path).unwrap();
+    helloworld_file.write(b"helloworld").unwrap();
 
+    let helloworld_sha = cli::hash_object(Format::Blob, true, helloworld_path);
+    let foobar_sha = cli::hash_object(Format::Blob, true, foobar_path);
+
+    // let tree_content = format!("{}\n", helloworld_sha, foobar_sha);
+    println!("{}", foobar_sha);
+    println!("{}", helloworld_sha);
     let tree = ls_tree(path, &mut builder);
     insta::assert_snapshot!("hash_object directory tree", tree.unwrap());
-    
-    let mut objects: Vec<String> = Vec::new();
-    fs::read_dir(Path::new("snapshots/working_dir/.minit/objects"))
-        .unwrap()
-        .for_each(|elem| {
-            let hash_prefix = elem.as_ref().unwrap().file_name();
-            elem.unwrap().path().read_dir().unwrap().for_each(|file|
-                objects.push(hash_prefix.clone().into_string().unwrap() + file.unwrap().file_name().to_str().unwrap())
-        )
-    });
-    let outputs = objects.iter()
-        .map(|f| {
-            let object = repo.read_object(repo.find_object(f.clone(), Format::Blob, true).unwrap()).unwrap();
-            String::from_utf8(object.serialize().unwrap().clone()).unwrap()
-        })
-        .collect::<Vec<String>>();
+    let mut map: IndexMap<String, String> = IndexMap::new();
+    map.insert(helloworld_sha.clone(), cli::cat_file(Format::Blob, &helloworld_sha, Some(repo_path)));
+    map.insert(foobar_sha.clone(), cli::cat_file(Format::Blob, &foobar_sha, Some(repo_path)));
+    insta::assert_snapshot!("cat_file (object_read) unhashed objects", format_index_map(map));
+     
+    // TODO: create two trees representing two different commits
+    // - 2 trees
+    // - 2 commits
+    // - Validate output of log command for commits 
+    // - Validate output of ls tree command
+    // - Create refs to each of these and validate whether util functions work
+      
+}
 
-    insta::assert_yaml_snapshot!("cat_file (object_read) unhashed objects", outputs);
+fn format_index_map(map: IndexMap<String, String>) -> String {
+    map.into_iter().map(|(k, v)| k + ": " + &v).collect::<Vec<String>>().join("\n")
 }
 
 #[test]
